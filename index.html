@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Dependencies -->
+    <script type="text/javascript" src="node_modules/acorn/dist/acorn.js"></script>
+    <script type="text/javascript" src="node_modules/paper/dist/paper-full.min.js"></script>
+
+    <script type="text/javascript" src="util.js"></script>
+    <script type="text/paperscript" src="script.js" canvas="canvas"></script>
+
+    <title>TrackGen</title>
+</head>
+<body>
+    <canvas id='canvas' resize></canvas>
+    <div id='lapTime'></div>
+    <input type='checkbox' id='braking'>
+</body>
+
+<style>
+    html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
+
+    #canvas {
+        width: 100%;
+        height: 100%;
+    }
+
+    #lapTime {
+        position: absolute;
+
+        bottom: 20px;
+        left: 20px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 20px;
+    }
+
+    input {
+        position: absolute;
+
+        top: 20px;
+        left: 20px;
+    }
+</style>
+</html>
