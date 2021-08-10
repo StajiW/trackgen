@@ -1,4 +1,4 @@
-const numSplits = 100
+const numSplits = 200
 const trackWidth = 0.15
 
 const g = 9.8
@@ -10,9 +10,10 @@ const A = 1.11
 const Cd = 0.71
 const P = 745.7 * 100 * 0.91
 
-const trackMul = 100
+const trackMul = 50
 
-let track, stepSize = 1, raceLine, racePath, curveIndex = 0, drawnTrack, lapTime, velocityMap, carOffset = 0, endVelocity = 20
+let track, stepSize = 1, raceLine, racePath, curveIndex = 0, drawnTrack
+let lapTime, velocityMap, carOffset = 0, endVelocity = 20, selected, circle
 
 
 
@@ -48,7 +49,7 @@ function main() {
 }
 
 function setupView() {
-    view.scaling = 250
+    view.scaling = 200
     view.center = [0,0]
 }
 
@@ -113,7 +114,7 @@ function getPointWithOffset(index, offset) {
 }
 
 function generateTrack() {
-    const numCorners = getRandomInt(8, 13)
+    const numCorners = getRandomInt(10, 10)
     const cornerDist = (Math.PI * 2) / numCorners
     const path = new Path()
     let lastPoint
@@ -263,7 +264,7 @@ function optimizePath() {
     let newLapTime
     let tempPath = new Path()
 
-    for (let i = raceLine.length - 1; i >= 0; i--) {
+    for (let i = 0; i < raceLine.length; i++) {
         tempPath.copyContent(racePath)
 
         const point = track.segments[i].point.clone()
@@ -301,9 +302,11 @@ function optimizePath() {
         // Increase offset
         tempPath.segments[i].point = track.getPointAt((offset + 0.01) % track.length)
         lapTime = applyIfFaster(tempPath, lapTime)
+        let newOffset = offset - 0.01
+        if (newOffset < 0) newOffset += track.length
 
         // Descrease offset
-        tempPath.segments[i].point = track.getPointAt((offset - 0.01) % track.length)
+        tempPath.segments[i].point = track.getPointAt(newOffset)
         lapTime = applyIfFaster(tempPath, lapTime)
 
         // Increase handleIn
@@ -376,6 +379,8 @@ function applyIfFaster(tempPath, lapTime) {
 }
 
 function isInBounds(path) {
+    return true
+
     const points = getPoints(path, numSplits)
 
     for (let i = 0; i < numSplits; i++) {
@@ -413,7 +418,7 @@ view.onFrame = function(e) {
         car.rotation = racePath.getTangentAt(carOffset).angle
     }
     else {
-        optimizePath()
+        // optimizePath()
 
         drawVelocity()
     
@@ -433,14 +438,75 @@ view.onResize = (e) => {
 
 
 tool.onMouseDown = (e) => {
-    for (segment of racePath.segments) {
-        if ((segment.point - e.point).length < 0.1) segment.point = e.point
+    for (let i = 0; i < racePath.segments.length; i++) {
+        const point = racePath.segments[i].point
 
-        lapTime = getLapTime(racePath)
-    
-        document.getElementById('lapTime').innerHTML = lapTime
-    
-        drawVelocity()
+        if ((point - e.point).length < 0.1) {
+            selected = i
+            if (circle) circle.remove()
+            circle = new Path.Circle(point, 0.1)
+            circle.strokeColor = 'blue'
+            circle.strokeWidth = 0.02
+        }
     }
 }
 
+tool.onKeyDown = (e) => {
+    if (e.key === 'space') optimizePath()
+
+    if (!selected) return
+
+    const point = racePath.segments[selected].point.clone()
+    const offset = racePath.getOffsetOf(point)
+
+    if (e.modifiers.shift) {
+        if (e.key === 'up') {
+            racePath.segments[selected].handleIn *= 1.1
+        }
+        else if (e.key === 'down') {
+            racePath.segments[selected].handleIn /= 1.1
+        }
+    }
+    else if (e.modifiers.control) {
+        if (e.key === 'up') {
+            racePath.segments[selected].handleOut *= 1.1
+        }
+        else if (e.key === 'down') {
+            racePath.segments[selected].handleOut /= 1.1
+        }
+    }
+    else {
+        if (e.key === 'up') {
+            const trackPos = raceLine[selected]
+
+            if (trackPos < 1) {
+                const normal = racePath.getNormalAt(offset)
+
+                racePath.segments[selected].point = point + (normal * trackWidth / 2 * 0.1)
+
+                raceLine[selected] += 0.1
+            }
+        }
+        else if (e.key === 'down') {
+            const trackPos = raceLine[selected]
+
+            if (trackPos > -1) {
+                const normal = racePath.getNormalAt(offset)
+
+                racePath.segments[selected].point = point - (normal * trackWidth / 2 * 0.1)
+
+                raceLine[selected] -= 0.1
+            }
+        }
+        else if (e.key === 'left') {
+            racePath.segments[selected].handleIn.angle += 5
+            racePath.segments[selected].handleOut.angle += 5
+        }
+        else if (e.key === 'right') {
+            racePath.segments[selected].handleIn.angle -= 5
+            racePath.segments[selected].handleOut.angle -= 5
+        }
+    }
+
+    circle.position = racePath.segments[selected].point
+}
