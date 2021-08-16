@@ -12,40 +12,49 @@ const P = 745.7 * 100 * 0.91
 
 const trackMul = 50
 
-let track, stepSize = 1, raceLine, racePath, curveIndex = 0, drawnTrack
-let lapTime, velocityMap, carOffset = 0, endVelocity = 20, selected, circle
+// let track, stepSize = 1, raceLine, racePath, curveIndex = 0, drawnTrack
+// let lapTime, velocityMap, carOffset = 0, endVelocity = 20, selected, circle
+
+let endVelocity = 20
 
 
 
-function main() {
-    track = generateTrack()
-    track.strokeColor = 'black'
-    track.strokeWidth = trackWidth
-    // track.fullySelected = true
+// function main() {
+//     track = generateTrack()
+//     track.strokeColor = 'black'
+//     track.strokeWidth = trackWidth
+//     // track.fullySelected = true
 
-    console.log(track.length * trackMul)
+//     stepSize = track.length / numSplits
 
-    stepSize = track.length / numSplits
+//     racePath = track.clone()
+//     racePath.strokeColor = 'red'
+//     racePath.strokeWidth = 0.02
+//     racePath.fullySelected = true
 
-    racePath = track.clone()
-    racePath.strokeColor = 'red'
-    racePath.strokeWidth = 0.02
-    racePath.fullySelected = true
+//     raceLine = new Array(racePath.segments.length).fill(0)
 
-    raceLine = new Array(racePath.segments.length).fill(0)
-
-    car = new Path.Rectangle(racePath.getPointAt(carOffset), [0.05, 0.025])
-    car.applyMatrix = false
-    car.rotation = racePath.getTangentAt(carOffset).angle
-    car.fillColor = 'white'
+//     // car = new Path.Rectangle(racePath.getPointAt(carOffset), [0.05, 0.025])
+//     // car.applyMatrix = false
+//     // car.rotation = racePath.getTangentAt(carOffset).angle
+//     // car.fillColor = 'white'
     
-    // optimizePath2()
+//     // optimizePath2()
 
-    // lapTime = getLapTime(racePath)
+//     // lapTime = getLapTime(racePath)
 
-    // document.getElementById('lapTime').innerHTML = lapTime
+//     // document.getElementById('lapTime').innerHTML = lapTime
 
-    // drawVelocity()
+//     // drawVelocity()
+
+//     // console.log(getExitVelocity(1, 10))
+//     // console.log(getExitVelocity(2, 10))
+
+//     simulatedAnnealing()
+// }
+
+function getAcceleration(u, s) {
+    return ((P / u) - (1 / 2) * ro * u * u * A * Cd) / mass
 }
 
 function setupView() {
@@ -137,6 +146,8 @@ function generateTrack() {
         )
 
         point *= getRandomFloat(0.5, 2)
+
+        // if (i === 10) point *= 2
 
         path.add(point)
     }
@@ -234,9 +245,17 @@ function getMaxVelocity(radius) {
 }
 
 function getExitVelocity(u, s) {
-    const a = ((P / u) - (1 / 2) * ro * u * u * A * Cd) / mass
+    const steps = 100
 
-    return Math.sqrt(u * u + 2 * s * a)
+    let speed = u
+
+    for (let i = 0; i < steps; i++) {
+        const a = ((P / speed) - (1 / 2) * ro * speed * speed * A * Cd) / mass
+
+        speed = Math.sqrt(speed * speed + 2 * s / steps * a)
+    }
+
+    return speed
 }
 
 function getMaxEntryVelocity(v, s, r) {
@@ -327,13 +346,19 @@ function optimizePath() {
 
         // Turn angle
         tempPath.segments[i].handleIn.angle += 5
+        lapTime = applyIfFaster(tempPath, lapTime)
+
         tempPath.segments[i].handleOut.angle += 5
         lapTime = applyIfFaster(tempPath, lapTime)
 
         tempPath.segments[i].handleIn.angle -= 5
+        lapTime = applyIfFaster(tempPath, lapTime)
+
         tempPath.segments[i].handleOut.angle -= 5
         lapTime = applyIfFaster(tempPath, lapTime)
     }
+
+    return lapTime
 }
 
 function optimizePath2() {
@@ -397,116 +422,218 @@ function isInBounds(path) {
 
 
 setupView()
-main()
+// main()
 
-view.onFrame = function(e) {
-    if (document.getElementById('braking').checked) {
-        if (!velocityMap) {
-            velocityMap = getSectors(racePath).map(sector => (sector.entryVelocity + sector.exitVelocity) / 2)
-            console.log(((P / 20) - (1 / 2) * ro * 20 * 20 * A * Cd) / mass)
-        }
+setTimeout(simulatedAnnealing, 1)
 
-        if (drawnTrack) drawnTrack.forEach(x => x.remove())
+// view.onFrame = function(e) {
+//     if (document.getElementById('braking').checked) {
+//         if (!velocityMap) {
+//             velocityMap = getSectors(racePath).map(sector => (sector.entryVelocity + sector.exitVelocity) / 2)
+//             console.log(((P / 20) - (1 / 2) * ro * 20 * 20 * A * Cd) / mass)
+//         }
+
+//         if (drawnTrack) drawnTrack.forEach(x => x.remove())
             
-        const velocity = velocityMap[Math.floor(carOffset / racePath.length * numSplits) % numSplits]
+//         const velocity = velocityMap[Math.floor(carOffset / racePath.length * numSplits) % numSplits]
 
-        carOffset += velocity * e.delta / trackMul
+//         carOffset += velocity * e.delta / trackMul
 
-        document.getElementById('lapTime').innerHTML = velocity * 3.6
+//         document.getElementById('lapTime').innerHTML = velocity * 3.6
 
-        car.position = racePath.getPointAt(carOffset)
-        car.rotation = racePath.getTangentAt(carOffset).angle
-    }
-    else {
-        // optimizePath()
+//         car.position = racePath.getPointAt(carOffset)
+//         car.rotation = racePath.getTangentAt(carOffset).angle
+//     }
+//     else {
+//         // optimizePath()
 
-        drawVelocity()
+//         drawVelocity()
+
+//         if (selected) {
+//             const point = racePath.segments[selected].point
+//             const offset = racePath.getOffsetOf(point)
+
+//             const sectors = getSectors(racePath)
+
+//             const sector = sectors[Math.floor(offset / racePath.length * numSplits) % numSplits]
+
+//             // const prev = racePath.getPointAt(offset - stepSize)
+//             // const next = racePath.getPointAt(offset + stepSize)
+
+//             // const radius = getRadius(prev, point, next)
+
+//             // document.getElementById('lapTime').innerHTML = `Radius ${radius}`
+
+//             document.getElementById('lapTime').innerHTML = `Entry: ${sector.entryVelocity}, Exit: ${sector.exitVelocity}`
+//         }
+//         else {
+//             lapTime = getLapTime(racePath)
     
-        lapTime = getLapTime(racePath)
-    
-        document.getElementById('lapTime').innerHTML = lapTime
-    }
-}
+//             document.getElementById('lapTime').innerHTML = `Lap time: ${lapTime}`
+//         }
+//     }
+// }
 
 view.onResize = (e) => {
     view.center = [0,0]
 }
 
 
+// tool.onMouseDown = (e) => {
+//     for (let i = 0; i < racePath.segments.length; i++) {
+//         const point = racePath.segments[i].point
 
+//         if ((point - e.point).length < 0.1) {
+//             selected = i
+//             if (circle) circle.remove()
+//             circle = new Path.Circle(point, 0.1)
+//             circle.strokeColor = 'blue'
+//             circle.strokeWidth = 0.02
 
+//             return
+//         }
+//     }
 
+//     if (circle) circle.remove()
+//     selected = null
+// }
 
-tool.onMouseDown = (e) => {
-    for (let i = 0; i < racePath.segments.length; i++) {
-        const point = racePath.segments[i].point
+// tool.onMouseDrag = function (event) {
+//     var delta = event.downPoint.subtract(event.point)
+//     paper.view.scrollBy(delta)
+// }
 
-        if ((point - e.point).length < 0.1) {
-            selected = i
-            if (circle) circle.remove()
-            circle = new Path.Circle(point, 0.1)
-            circle.strokeColor = 'blue'
-            circle.strokeWidth = 0.02
+// tool.onKeyDown = (e) => {
+//     // if (e.key === 'space') optimizePath()
+
+//     if (e.key === '+') view.scaling *= 1.2
+//     if (e.key === '-') view.scaling /= 1.2
+
+//     if (!selected) return
+
+//     const point = racePath.segments[selected].point.clone()
+//     const offset = racePath.getOffsetOf(point)
+
+//     if (e.modifiers.shift) {
+//         if (e.key === 'up') {
+//             racePath.segments[selected].handleIn *= 1.1
+//         }
+//         else if (e.key === 'down') {
+//             racePath.segments[selected].handleIn /= 1.1
+//         }
+//     }
+//     else if (e.modifiers.control) {
+//         if (e.key === 'up') {
+//             racePath.segments[selected].handleOut *= 1.1
+//         }
+//         else if (e.key === 'down') {
+//             racePath.segments[selected].handleOut /= 1.1
+//         }
+//     }
+//     else {
+//         if (e.key === 'up') {
+//             const trackPos = raceLine[selected]
+
+//             if (trackPos < 1) {
+//                 const normal = racePath.getNormalAt(offset)
+
+//                 racePath.segments[selected].point = point + (normal * trackWidth / 2 * 0.1)
+
+//                 raceLine[selected] += 0.1
+//             }
+//         }
+//         else if (e.key === 'down') {
+//             const trackPos = raceLine[selected]
+
+//             if (trackPos > -1) {
+//                 const normal = racePath.getNormalAt(offset)
+
+//                 racePath.segments[selected].point = point - (normal * trackWidth / 2 * 0.1)
+
+//                 raceLine[selected] -= 0.1
+//             }
+//         }
+//         else if (e.key === 'left') {
+//             racePath.segments[selected].handleIn.angle += 5
+//             racePath.segments[selected].handleOut.angle += 5
+//         }
+//         else if (e.key === 'right') {
+//             racePath.segments[selected].handleIn.angle -= 5
+//             racePath.segments[selected].handleOut.angle -= 5
+//         }
+
+//     }
+
+//     circle.position = racePath.segments[selected].point
+
+//     document.getElementById('lapTime').innerHTML = `Lap time: ${getLapTime(racePath)}`
+
+//     drawVelocity()
+// }
+
+function p(lapTime, newLapTime, T) {
+    const r = Math.random() * T
+
+    return (newLapTime < lapTime) ? 1 - r : r
+}
+
+function temperature(r) {
+    return r
+}
+
+function neighbour(state, track) {
+    const path = state.clone()
+
+    const i = getRandomInt(0, path.segments.length)
+
+    const point = track.segments[i].point
+    const offset = track.getOffsetOf(point)
+    const normal = track.getNormalAt(offset)
+
+    const pos = getRandomFloat(-1, 1)
+
+    console.log(pos)
+
+    path.segments[i].point = point + normal * pos * trackWidth / 2
+
+    return path
+}
+
+function simulatedAnnealing() {
+    const track = generateTrack()
+    track.strokeColor = 'black'
+    track.strokeWidth = trackWidth
+
+    const state = track.clone()
+    state.strokeColor = 'red'
+    state.strokeWidth = 0.02
+
+    const kMax = 100
+
+    for (let k = 0; k < kMax; k++) {
+        const T = temperature(1 - (k + 1) / kMax)
+
+        const newState = neighbour(state, track)
+
+        if (p(getLapTime(state), getLapTime(newState), T) >= Math.random()) {
+            state.copyContent(newState)
+            view.requestUpdate()
         }
+
+        newState.remove()
     }
 }
 
-tool.onKeyDown = (e) => {
-    if (e.key === 'space') optimizePath()
+// setTimeout(() => {
+//     lapTime = getLapTime(racePath)
+//     let lastLapTime = Number.MAX_SAFE_INTEGER
 
-    if (!selected) return
+//     while (lastLapTime > lapTime) {
+//         lastLapTime = lapTime
+//         setTimeout(() => { lapTime = optimizePath() }, 1)
+//         drawVelocity()
+//         view.requestUpdate()
+//     }
 
-    const point = racePath.segments[selected].point.clone()
-    const offset = racePath.getOffsetOf(point)
-
-    if (e.modifiers.shift) {
-        if (e.key === 'up') {
-            racePath.segments[selected].handleIn *= 1.1
-        }
-        else if (e.key === 'down') {
-            racePath.segments[selected].handleIn /= 1.1
-        }
-    }
-    else if (e.modifiers.control) {
-        if (e.key === 'up') {
-            racePath.segments[selected].handleOut *= 1.1
-        }
-        else if (e.key === 'down') {
-            racePath.segments[selected].handleOut /= 1.1
-        }
-    }
-    else {
-        if (e.key === 'up') {
-            const trackPos = raceLine[selected]
-
-            if (trackPos < 1) {
-                const normal = racePath.getNormalAt(offset)
-
-                racePath.segments[selected].point = point + (normal * trackWidth / 2 * 0.1)
-
-                raceLine[selected] += 0.1
-            }
-        }
-        else if (e.key === 'down') {
-            const trackPos = raceLine[selected]
-
-            if (trackPos > -1) {
-                const normal = racePath.getNormalAt(offset)
-
-                racePath.segments[selected].point = point - (normal * trackWidth / 2 * 0.1)
-
-                raceLine[selected] -= 0.1
-            }
-        }
-        else if (e.key === 'left') {
-            racePath.segments[selected].handleIn.angle += 5
-            racePath.segments[selected].handleOut.angle += 5
-        }
-        else if (e.key === 'right') {
-            racePath.segments[selected].handleIn.angle -= 5
-            racePath.segments[selected].handleOut.angle -= 5
-        }
-    }
-
-    circle.position = racePath.segments[selected].point
-}
+//     console.log('ugh')
+// }, 1000)

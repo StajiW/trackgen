@@ -9,14 +9,21 @@
     <script type="text/javascript" src="node_modules/paper/dist/paper-full.min.js"></script>
 
     <script type="text/javascript" src="util.js"></script>
-    <script type="text/paperscript" src="script.js" canvas="canvas"></script>
+    <script type="text/paperscript" src="script_genetic.js" canvas="canvas"></script>
 
     <title>TrackGen</title>
 </head>
 <body>
     <canvas id='canvas' resize></canvas>
     <div id='lapTime'></div>
-    <input type='checkbox' id='braking'>
+    <div id='duration'></div>
+    <div id='buttons'>
+        <div class='button selectable' id='hillClimb'>Hill Climb</div>
+        <div class='button selectable' id='hillClimbSync'>Hill Climb (Fast)</div>
+        <div class='button selectable' id='simulatedAnnealing'>Simulated Annealing</div>
+        <div class='button selectable' id='geneticAlgorithm'>Genetic Algorithm</div>
+    </div>
+    <!-- <input type='checkbox' id='braking'> -->
 </body>
 
 <style>
@@ -41,11 +48,57 @@
         font-size: 20px;
     }
 
+    #lapTime {
+        position: absolute;
+
+        bottom: 20px;
+        left: 20px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 20px;
+    }
+
+    #duration {
+        position: absolute;
+
+        bottom: 60px;
+        left: 20px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 20px;
+    }
+
     input {
         position: absolute;
 
         top: 20px;
         left: 20px;
+    }
+
+    #buttons {
+        position: absolute;
+
+        top: 0;
+        right: 0;
+    }
+
+    .button {
+        text-align: right;
+        margin: 20px;
+
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 20px;
+
+        user-select: none;
+    }
+
+    .button.selectable {
+        user-select: initial;
+
+        cursor: pointer;
+    }
+    
+    .button.selected {
+        font-weight: bold;
+        color: red;
     }
 </style>
 </html>
