@@ -1,7 +1,6 @@
 {
   "name": "trackgen",
   "version": "1.0.0",
-  "description": "",
   "main": "script.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,5 +10,15 @@
   "dependencies": {
     "acorn": "^8.4.1",
     "paper": "^0.12.15"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StajiW/trackgen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/StajiW/trackgen/issues"
+  },
+  "homepage": "https://github.com/StajiW/trackgen#readme",
+  "description": ""
 }

@@ -1,0 +1,17 @@
+{
+  "name": "node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mathjs": "^9.4.4",
+    "paper": "^0.12.15",
+    "paper-jsdom": "^0.12.15",
+    "paper-jsdom-canvas": "^0.12.15"
+  }
+}

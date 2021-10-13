@@ -12,14 +12,14 @@ const P = 745.7 * 100 * 0.91
 
 let endVelocity = 20, racePath, track, stepSize = 1, trackPoints = []
 
-const generationSize = 128
+const generationSize = 250
 
 let population = []
 
 let canUpdate = true, done = false, lapTime = 0, lastLapTime = 0
 let selected, circle
 
-let k = 0; kMax = 1000
+let k = 0, kMax = 10000, temperature
 
 let mode
 
@@ -46,35 +46,42 @@ view.onFrame = (e) => {
     canUpdate = false
 
     if (mode === 'hillClimb') {
-        lapTime = hillClimb(racePath)
+        hillClimb(racePath)
+
+        lapTime = getLapTime(racePath)
 
         if (lapTime === lastLapTime) done = true
 
         lastLapTime = lapTime
     }
     else if (mode === 'hillClimbSync') {
-        lapTime = hillClimbSync(racePath)
+        hillClimbSync(racePath)
+
+        lapTime = getLapTime(racePath)
 
         if (lapTime === lastLapTime) done = true
 
         lastLapTime = lapTime
     }
     else if (mode === 'simulatedAnnealing') {
-        simulatedAnnealing(racePath, k)
+        simulatedAnnealing(racePath)
 
         lapTime = getLapTime(racePath)
-
-        k++
-
-        if (k >= kMax) done = true
     }
     else if (mode === 'geneticAlgorithm') {
-        if (population.length === 0) population = getInitialPopulation()
+        if (population.length === 0) {
+            population = getInitialPopulation()
+            sortPopulation()
+        }
 
+        console.log(0)
         geneticStep()
+        console.log(1)
 
-        racePath.copyContent(getBestPath())
-        lapTime = getLapTime(racePath)
+        racePath.copyContent(population[0].path)
+        lapTime = population[0].lapTime
+
+        console.log(population[population.length - 1].lapTime)
 
         document.getElementById('lapTime').innerHTML = lapTime
     }
@@ -84,31 +91,43 @@ view.onFrame = (e) => {
     canUpdate = true
 }
 
+function simulatedAnnealing(state) {
+    const coolingRate = 0.95
+    temperature = temperature * coolingRate
+    const N = 100
+    let newState, newLapTime
 
+    for (let i = 0; i < N; i++) {
+        while (true) {
+            newState = neighbour(state)
 
-function p(lapTime, newLapTime, T) {
-    const r = Math.random() * T
+            if (isInBounds(newState)) break
 
-    return (newLapTime < lapTime) ? 1 - r : r
-}
+            newState.remove()
+        }
 
-function temperature(r) {
-    return r
-}
+        newLapTime = getLapTime(newState)
 
-function simulatedAnnealing(state, k) {
-    const T = temperature(1 - (k + 1) / kMax)
+        if (newLapTime <= lapTime) {
+            state.copyContent(newState)
+            lapTime = newLapTime
+        }
+        else {
+            if (Math.exp((lapTime - newLapTime) / temperature) > Math.random()) {
+                state.copyContent(newState)
+                lapTime = newLapTime
+            }
+        }
 
-    const newState = neighbour(state)
-
-    if (isInBounds(newState) && p(getLapTime(state), getLapTime(newState), T) >= Math.random()) {
-        state.copyContent(newState)
+        newState.remove()
     }
-
-    newState.remove()
 }
 
-function neighbour(state) {
+function getNeighbour(state) {
+    const interval = 0.1 * trackWidth / 2
+    const angleInterval = 1
+    const handleInterval = 1.1
+
     const path = state.clone()
 
     const i = getRandomInt(0, path.segments.length)
@@ -117,9 +136,47 @@ function neighbour(state) {
     const offset = path.getOffsetOf(point)
     const normal = path.getNormalAt(offset)
 
-    const pos = getRandomFloat(-1, 1)
+    const int = getRandomInt(0, 12)
 
-    path.segments[i].point = point + normal * pos * trackWidth / 2
+    switch (int) {
+        case 0:
+            path.segments[i].point = point + normal * interval
+            break
+        case 1:
+            path.segments[i].point = point - normal * interval
+            break
+        case 2:
+            path.segments[i].point = path.getPointAt(offset + interval)
+            break
+        case 3:
+            path.segments[i].point = path.getPointAt(offset - interval)
+            break
+        case 4:
+            path.segments[i].handleIn *= handleInterval
+            break
+        case 5:
+            path.segments[i].handleIn /= handleInterval
+            break
+        case 6:
+            path.segments[i].handleIn.angle += angleInterval
+            break
+        case 7:
+            path.segments[i].handleIn.angle -= angleInterval
+            break
+        case 8:
+            path.segments[i].handleOut *= handleInterval
+            break
+        case 9:
+            path.segments[i].handleOut /= handleInterval
+            break
+        case 10:
+            path.segments[i].handleOut.angle += angleInterval
+            break
+        case 11:
+            path.segments[i].handleOut.angle -= angleInterval
+            break
+        default:
+    }
 
     return path
 }
@@ -132,9 +189,10 @@ function neighbour(state) {
 
 function main() {
     track = new Path()
-    const json = loadFile('path.json')
+    const json = loadFile('tracks/6.json')
     track.importJSON(json)
     track.strokeWidth = trackWidth
+    track.strokeColor = 'black'
 
     trackPoints = getPoints(track, trackSplits)
 
@@ -145,6 +203,8 @@ function main() {
     racePath.strokeColor = 'red'
 
     lapTime = getLapTime(racePath)
+
+    temperature = (0.2 / -Math.log(0.1)) * lapTime
 }
 
 function loadFile(filePath) {
@@ -159,9 +219,6 @@ function loadFile(filePath) {
 
     return result
 }
-
-
-
 
 
 
@@ -231,6 +288,7 @@ function hillClimbSync(target) {
     const temp = target.clone()
     const bestPath = target.clone()
     let bestLapTime = getLapTime(target)
+    let lapTime1, lapTime2
 
     temp.strokeWidth = 0.01
     temp.strokeColor = 'blue'
@@ -242,42 +300,63 @@ function hillClimbSync(target) {
 
         // Center
         temp.segments[i].point += normal * interval
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
-
+        lapTime1 = getLapTime(temp)
+        temp.copyContent(target)
         temp.segments[i].point -= normal * interval
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        lapTime2 = getLapTime(temp)
+
+        if (lapTime1 <= lapTime2 && lapTime1 < lapTime) {
+            bestPath.segments[i].point += normal * interval
+        }
+        else if (lapTime2 <= lapTime1 && lapTime2 < lapTime) {
+            bestPath.segments[i].point -= normal * interval
+        }
+
 
         temp.segments[i].point = target.getPointAt(offset + interval)
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
-
+        lapTime1 = getLapTime(temp)
+        temp.copyContent(target)
         temp.segments[i].point = target.getPointAt(offset - interval)
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        lapTime2 = getLapTime(temp)
+
+        if (lapTime1 <= lapTime2 && lapTime1 < lapTime) {
+            bestPath.segments[i].point = target.getPointAt(offset + interval)
+        }
+        else if (lapTime2 <= lapTime1 && lapTime2 < lapTime) {
+            bestPath.segments[i].point = target.getPointAt(offset - interval)
+        }
 
         // HandleIn
         temp.segments[i].handleIn += [interval, 0]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
 
         temp.segments[i].handleIn -= [interval, 0]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
+
+        temp.segments[i].point = target.getPointAt(offset + interval)
+        lapTime1 = getLapTime(temp)
+        temp.copyContent(target)
+        temp.segments[i].point = target.getPointAt(offset - interval)
+        lapTime2 = getLapTime(temp)
 
         temp.segments[i].handleIn += [0, interval]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
 
         temp.segments[i].handleIn -= [0, interval]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
 
         // HandleOut
         temp.segments[i].handleOut += [interval, 0]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
 
         temp.segments[i].handleOut -= [interval, 0]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
 
         temp.segments[i].handleOut += [0, interval]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
 
         temp.segments[i].handleOut -= [0, interval]
-        bestLapTime = getNewLapTime(temp, bestPath, bestLapTime, bestPath)
+        bestLapTime = getNewLapTime(temp, bestPath, lapTime, target)
     }
 
     target.copyContent(bestPath)
@@ -324,69 +403,109 @@ function getInitialPopulation() {
             path.remove()
         }
 
-        array.push(path)
+        array.push({
+            path: path,
+            lapTime: getLapTime(path)
+        })
     }
 
     return array
 }
 
 function geneticStep() {
-    const winners = doTournament(population)
-    const numWinners = winners.length
+    population = population.splice(0, population.length / 2)
 
-    const newPopulation = []
-
-    while (newPopulation.length < generationSize) {
-        const index1 = getRandomInt(0, numWinners)
+    while (population.length < generationSize) {
+        const index1 = getRandomInt(0, population.length)
         let index2 = index1
-        while (index2 === index1) index2 = getRandomInt(0, numWinners)
+        while (index2 === index1) index2 = getRandomInt(0, population.length)
 
-        const child = getChild(winners[index1], winners[index2])
+        const children = getChildren(population[index1].path, population[index2].path)
 
-
-        if (isInBounds(child)) newPopulation.push(child)
-    }
-
-    population = newPopulation
-}
-
-function doTournament(population) {
-    const winners = []
-
-    for (let i = 0; i < generationSize; i += 2) {
-        const path1 = population[i]
-        const path2 = population[i + 1]
-
-        const lapTime1 = getLapTime(path1)
-
-        const lapTime2 = getLapTime(path2)
-
-        if (lapTime1 < lapTime2) winners.push(path1)
-        else winners.push(path2)
-    }
-
-    return winners
-}
-
-function getChild(parent1, parent2) {
-    const path = parent1.clone()
-
-    for (let i = 0; i < parent1.segments.length; i++) {
-        path.segments[i].point = (path.segments[i].point + parent2.segments[i].point) / 2
-        path.segments[i].handleIn = (path.segments[i].handleIn + parent2.segments[i].handleIn) / 2
-        path.segments[i].handleOut = (path.segments[i].handleOut + parent2.segments[i].handleOut) / 2
-
-        if (Math.random() < 0.2) {
-            const offset = path.getOffsetOf(path.segments[i].point)
-            const normal = path.getNormalAt(offset)
-            path.segments[i].point += normal * (0.1 * Math.random() - 0.05)
-    
-            // path.segments[i].handleIn += getRandomPoint(0.1)
-            // path.segments[i].handleOut += getRandomPoint(0.1)
+        if (children) {
+            population.push(children[0])
+            population.push(children[1])
         }
     }
 
-    return path
+    sortPopulation()
+}
+
+function sortPopulation() {
+    population.sort((a, b) => (a.lapTime > b.lapTime) ? 1 : (a.lapTime < b.lapTime) ? -1 : 0)
+}
+
+function getChildren(parent1, parent2) {
+    const alpha = getRandomInt(0, 10)
+    const beta = Math.random()
+    const child1 = parent1.clone()
+    const child2 = parent1.clone()
+
+    for (let i = 0; i < parent1.segments.length; i++) {
+        const point1 = parent1.segments[i].point.clone()
+        const point2 = parent2.segments[i].point.clone()
+        const handleIn1 = parent1.segments[i].handleIn.clone()
+        const handleIn2 = parent2.segments[i].handleIn.clone()
+        const handleOut1 = parent1.segments[i].handleOut.clone()
+        const handleOut2 = parent2.segments[i].handleOut.clone()
+
+        child1.segments[i].point = point1 - (point1 - point2) * beta
+        child1.segments[i].handleIn = handleIn1 - (handleIn1 - handleIn2) * beta
+        child1.segments[i].handleOut = handleOut1 - (handleOut1 - handleOut2) * beta
+
+        mutate(child1, i)
+
+        child2.segments[i].point = point2 + (point1 - point2) * beta
+        child2.segments[i].handleIn = handleIn2 + (handleIn1 - handleIn2) * beta
+        child2.segments[i].handleOut = handleOut2 + (handleOut1 - handleOut2) * beta
+
+        mutate(child2, i)
+    }
+
+    if (!isInBounds(child1) || !isInBounds(child2)) {
+        return null
+    }
+
+    return [
+        {
+            path: child1,
+            lapTime: getLapTime(child1)
+        },
+        {
+            path: child2,
+            lapTime: getLapTime(child2)
+        }
+    ]
+}
+
+function mutate(path, i) {
+    const chance = 0.2
+    const interval = 0.1 * trackWidth / 2
+
+    if (Math.random() < chance) {
+        const offset = path.getOffsetOf(path.segments[i].point)
+        const normal = path.getNormalAt(offset)
+        path.segments[i].point += normal * (2 * interval * Math.random() - interval)
+
+        path.segments[i].handleIn 
+        path.segments[i].handleOut += getRandomPoint(interval)
+    }
+    if (Math.random() < chance) {
+        const offset = path.getOffsetOf(path.segments[i].point)
+        path.segments[i].point = path.getPointAt(offset + 2 * interval * Math.random() - interval)
+    }
+    if (Math.random() < chance) {
+        path.segments[i].handleIn *= getRandomFloat(0.9, 1.1)
+    }
+    if (Math.random() < chance) {
+        path.segments[i].handleIn.angle += getRandomFloat(-5, 5)
+    }
+    if (Math.random() < chance) {
+        path.segments[i].handleOut *= getRandomFloat(0.9, 1.1)
+    }
+    if (Math.random() < chance) {
+        path.segments[i].handleOut.angle += getRandomFloat(-5, 5)
+    }
 }
 
 function getBestPath() {

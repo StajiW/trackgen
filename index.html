@@ -8,8 +8,14 @@
     <script type="text/javascript" src="node_modules/acorn/dist/acorn.js"></script>
     <script type="text/javascript" src="node_modules/paper/dist/paper-full.min.js"></script>
 
-    <script type="text/javascript" src="util.js"></script>
-    <script type="text/paperscript" src="script_genetic.js" canvas="canvas"></script>
+    <script type="text/javascript" src="scripts/util.js"></script>
+    <script type="text/javascript" src="scripts/paths.js"></script>
+    <script type="text/javascript" src="scripts/lapTime.js"></script>
+    <script type="text/javascript" src="scripts/greedyLocalSearch.js"></script>
+    <script type="text/javascript" src="scripts/firstChoiceHillClimb.js"></script>
+    <script type="text/javascript" src="scripts/simulatedAnnealing.js"></script>
+    <script type="text/javascript" src="scripts/geneticAlgorithm.js"></script>
+    <script type="text/javascript" src="scripts/main.js" canvas="canvas"></script>
 
     <title>TrackGen</title>
 </head>
@@ -18,12 +24,14 @@
     <div id='lapTime'></div>
     <div id='duration'></div>
     <div id='buttons'>
-        <div class='button selectable' id='hillClimb'>Hill Climb</div>
-        <div class='button selectable' id='hillClimbSync'>Hill Climb (Fast)</div>
+        <div class='button selectable' id='greedyLocalSearch'>Greedy Local Search</div>
+        <div class='button selectable' id='hillClimb'>First-Choice Hill Climb</div>
         <div class='button selectable' id='simulatedAnnealing'>Simulated Annealing</div>
         <div class='button selectable' id='geneticAlgorithm'>Genetic Algorithm</div>
+        <div class='button selectable' id='showAll'>Show All</div>
     </div>
-    <!-- <input type='checkbox' id='braking'> -->
+    <div id='random'>Randomize track</div>
+    <!-- <div id='play' class='inactive'></div> -->
 </body>
 
 <style>
@@ -32,6 +40,10 @@
         height: 100%;
         margin: 0;
         overflow: hidden;
+
+        background-color: rgba(0, 0, 0, 0.01);
+
+        font-size: 1vw;
     }
 
     #canvas {
@@ -42,35 +54,21 @@
     #lapTime {
         position: absolute;
 
-        bottom: 20px;
-        left: 20px;
+        bottom: 2rem;
+        left: 2rem;
         font-family: 'Courier New', Courier, monospace;
-        font-size: 20px;
-    }
-
-    #lapTime {
-        position: absolute;
-
-        bottom: 20px;
-        left: 20px;
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 20px;
+        font-size: 2rem;
+        font-weight: bold;
     }
 
     #duration {
         position: absolute;
 
-        bottom: 60px;
-        left: 20px;
+        bottom: 5rem;
+        left: 2rem;
         font-family: 'Courier New', Courier, monospace;
-        font-size: 20px;
-    }
-
-    input {
-        position: absolute;
-
-        top: 20px;
-        left: 20px;
+        font-size: 2rem;
+        font-weight: bold;
     }
 
     #buttons {
@@ -82,23 +80,75 @@
 
     .button {
         text-align: right;
-        margin: 20px;
+        margin: 2rem;
 
         font-family: 'Courier New', Courier, monospace;
-        font-size: 20px;
+        font-size: 2rem;
 
         user-select: none;
+
+        transition-property: opacity;
+        transition-duration: 0.2s;
     }
 
     .button.selectable {
+        display: block;
+
         user-select: initial;
 
         cursor: pointer;
     }
     
     .button.selected {
+        display: block;
         font-weight: bold;
+    }
+
+    #random {
+        position: absolute;
+        bottom: 2rem;
+        right: 2rem;
+
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 2rem;
+        font-weight: bold;
+
+        cursor: pointer;
+
+        transition-property: opacity;
+        transition-duration: 0.2s;
+
+        user-select: none;
+    }
+
+    .inactive {
+        opacity: 0;
+    }
+
+    .colored {
+        font-weight: bold;
+    }
+
+    #greedyLocalSearch.colored {
+        color: green;
+    }
+
+    #hillClimb.colored {
+        color: blue;
+    }
+
+    #simulatedAnnealing.colored {
         color: red;
+    }
+
+    #geneticAlgorithm.colored {
+        color: orange;
+    }
+
+    @media (max-width: 900px) {
+        html {
+            font-size: 1.25vw;
+        }
     }
 </style>
 </html>
